@@ -1,0 +1,46 @@
+pipeline {
+    agent any
+
+    stages {
+
+        stage('Build Server') {
+            steps {
+                echo ' Building server image...'
+                sh 'docker build -t mern-server-test ./server'
+            }
+        }
+
+        stage('Build Client') {
+            steps {
+                echo ' Building client image...'
+                sh 'docker build -t mern-client-test ./client'
+            }
+        }
+
+        stage('Security Scan with Trivy') {
+            steps {
+                echo ' Scanning Docker images with Trivy...'
+                // le "|| true" permet d'éviter un échec du pipeline si Trivy trouve des vulnérabilités
+                sh 'trivy image mern-server-test || true'
+                sh 'trivy image mern-client-test || true'
+            }
+        }
+
+        stage('Run Containers') {
+            steps {
+                echo ' Running containers...'
+                sh 'docker compose up -d'
+            }
+        }
+    }
+
+    post {
+        always {
+            echo ' Cleaning up Docker resources...'
+            sh '''
+                docker compose down
+                docker system prune -f
+            '''
+        }
+    }
+}

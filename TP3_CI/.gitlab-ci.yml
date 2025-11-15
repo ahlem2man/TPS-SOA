@@ -1,0 +1,55 @@
+stages:
+  - build
+  - scan
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+
+
+build_images:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - echo " Building server and client images..."
+    - docker build -t mern-server-test ./server
+    - docker build -t mern-client-test ./client
+
+    - docker save mern-server-test > mern-server-test.tar
+    - docker save mern-client-test > mern-client-test.tar
+  artifacts:
+    paths:
+      - mern-server-test.tar
+      - mern-client-test.tar
+
+
+scan_images:
+  stage: scan
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - echo " Scanning images with Trivy..."
+    - docker load < mern-server-test.tar
+    - docker load < mern-client-test.tar
+    - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image mern-server-test || true
+    - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image mern-client-test || true
+  dependencies:
+    - build_images
+
+deploy:
+  stage: deploy
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - echo " Deploying containers..."
+    - docker load < mern-server-test.tar
+    - docker load < mern-client-test.tar
+    - docker compose down || true
+    - docker compose up -d
+  dependencies:
+    - build_images

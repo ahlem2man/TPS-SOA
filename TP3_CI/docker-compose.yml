@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  server:
+    image: mern-server-test
+    container_name: mern-server-test-container
+    ports:
+      - "9000:9000"
+
+  client:
+    image: mern-client-test
+    container_name: mern-client-test-container
+    ports:
+      - "3000:80"
+    depends_on:
+      - server
